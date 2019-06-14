@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        div.group-vertical>div {
+            display: inline-block;
+            width: 20px;
+            border: 1px black solid;
+            user-select: none;
+        }
+
+        label {
+            display: block;
+            text-align: center;
+        }
+
+        input[type=checkbox] {
+            position: absolute;
+        }
+    </style>
+</head>
+
+<body>
+
+    <form>
+        <div class="group-vertical">
+            <div>
+                <input id="iptA" type="checkbox" name="a" value="A">
+                <label for="iptA">主会场1</label>
+                <span class="mark">M</span>
+            </div>
+            <div>
+                <label>
+                    <input type="checkbox" name="a" value="B">
+                    主会场2
+                    <span class="mark">M</span>
+                </label>
+            </div>
+            <div>
+                <label>
+                    <input type="checkbox" name="a" value="C">
+                    C
+                    <span class="mark">M</span>
+                </label>
+            </div>
+        </div>
+        </div>
+    </form>
+</body>
+
+</html>

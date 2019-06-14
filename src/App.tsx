@@ -1,26 +1,51 @@
-import React from 'react';
-import logo from './logo.svg';
+import * as React from 'react';
+import { Radio, Row } from 'antd'
+import { chNum } from './data/data_misc'
+import Dashboard from './components/charts/dashboard'
+import 'antd/dist/antd.css';
 import './App.css';
+import SectionVenue from './components/charts/venue/section_venue'
 
-const App: React.FC = () => {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+interface Props {
+
 }
+interface State {
+  day: number
+}
+export default class App extends React.Component<Props, State>{
+  constructor(props: Props) {
+    super(props);
 
-export default App;
+    this.state = {
+      day: 0
+    };
+
+    this.handleDayChange = this.handleDayChange.bind(this);
+  }
+  handleDayChange(e: any) {
+    this.setState({
+      day: parseInt(e.target.value)
+    });
+  }
+  render() {
+    const { day } = this.state
+    return (
+      <div className="app" >
+
+        {/* data select: day */}
+        <div className="control-panel material-card" id="control-app">
+          <Row type="flex" justify="center">
+            <Radio.Group name='day' defaultValue={this.state.day}
+              onChange={this.handleDayChange}>
+              <Radio.Button value={0}>第{chNum[0]}天</Radio.Button>
+              <Radio.Button value={1}>第{chNum[1]}天</Radio.Button>
+              <Radio.Button value={2}>第{chNum[2]}天</Radio.Button>
+            </Radio.Group>
+          </Row>
+        </div>
+        <SectionVenue day={day} />
+        <Dashboard day={day} />
+      </div>
+    );
+  }
+}
