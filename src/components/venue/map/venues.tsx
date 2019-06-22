@@ -1,61 +1,31 @@
 import * as React from "react";
 import * as d3 from 'd3';
-import { IDataVenues, IVenue } from '../../../../data/venue';
-import { v2, MODE_VENUE_POPULATION, MODE_POPULATION } from '../../../../types/interfaces';
-import { maxNumVenueTimePop, styleMap } from '../../../../data/data_misc';
+import {  IVenue,dataVenues } from '../../../data/venue';
+import { v2, MODE_VENUE_POPULATION, MODE_POPULATION,DataPopulationEntitiesDay } from '../../../types/interfaces';
+import { maxNumVenueTimePop, styleMap } from '../../../data/data_misc';
 
 // Venues, Venue, VenuePopulationRect, VenuePopulationLine
 
 interface PropsVenues {
-    sizeBlock: number;
-    venues: IDataVenues;
-    day: number;
-    time: number;
-    modeVenuePopLine: MODE_VENUE_POPULATION,
-    modeVenuePopRect: MODE_VENUE_POPULATION,
-    modePopulation: MODE_POPULATION,
+    sizeBlock: number
+    day: number
+    time: number
+    modeVenuePopLine: MODE_VENUE_POPULATION    // 最大值类型
+    modeVenuePopRect: MODE_VENUE_POPULATION
+    modePopulation: MODE_POPULATION
+    dataPopulation:DataPopulationEntitiesDay|null
 }
-interface StateVenues {
-    dataTimePop: { [key: string]: number[] } | null;
-
-}
-export default class Venues extends React.Component<PropsVenues, StateVenues>{
+export default class Venues extends React.Component<PropsVenues, {}>{
     positions: { [key: string]: v2 } = {}
     sizes: { [key: string]: v2 } = {}
-
-    constructor(props: PropsVenues) {
-        super(props);
-
-        this.state = {
-            dataTimePop: null
-        }
-
-        this.loadData()
-    }
-
-    loadData() {
-        const { day, modePopulation } = this.props;
-        const modePop = (modePopulation === MODE_POPULATION.STATIC) ? 'static' : 'dynamic'
-        const url = `./data/venue_time_pop_${modePop}/data${day + 1}.json`
-        fetch(url)
-            .then((res) => res.json())
-            .then((data: any) => {  // 不保证获得的是可靠数据对吧?  这种情况怎么处理
-                this.setState({ dataTimePop: data });
-            })
-    }
-    componentDidUpdate(preProps: PropsVenues) {
-        if (preProps.modePopulation !== this.props.modePopulation
-            || preProps.day !== this.props.day) {
-            this.loadData()
-        }
-    }
+    
     render() {
-        const { sizeBlock, venues, day, time } = this.props;
-        const { dataTimePop } = this.state
+        const { sizeBlock, day, time,dataPopulation } = this.props;
+        // const { dataTimePop } = this.state
 
         // 计算渲染尺寸和渲染位置, 并暂时保存        
-        for (const vid in venues) {
-            const venue = venues[vid]
+        for (const vid in dataVenues) {
+            const venue = dataVenues[vid]
             if (!(vid in this.positions)) {
                 this.positions[vid] = { a: venue.x * sizeBlock, b: venue.y * sizeBlock }
             }
@@ -65,9 +35,10 @@ export default class Venues extends React.Component<PropsVenues, StateVenues>{
         }
 
         const ret: any[] = [];
-        for (const vid in venues) {
-            const venue = venues[vid]
-            const data = dataTimePop ? dataTimePop[vid] : null;
+        for (const vid in dataVenues) {
+            const venue = dataVenues[vid]
+            // const data = dataTimePop ? dataTimePop[vid] : null;
+            const dataVenue = dataPopulation ? dataPopulation[vid] : null;
 
             ret.push((
                 <Venue
@@ -81,7 +52,7 @@ export default class Venues extends React.Component<PropsVenues, StateVenues>{
                     modePopulation={this.props.modePopulation}
                     modeVenuePopLine={this.props.modeVenuePopLine}
                     modeVenuePopRect={this.props.modeVenuePopRect}
-                    dataTimePop={data}
+                    data={dataVenue}
                 />
             ))
         }
@@ -102,7 +73,7 @@ interface PropsVenue {
     modePopulation: MODE_POPULATION,
     modeVenuePopLine: MODE_VENUE_POPULATION,
     modeVenuePopRect: MODE_VENUE_POPULATION,
-    dataTimePop: number[] | null;
+    data: number[] | null;
 }
 class Venue extends React.Component<PropsVenue, {}>{
     getMaxVal(modeMax: MODE_VENUE_POPULATION): number {
@@ -126,24 +97,24 @@ class Venue extends React.Component<PropsVenue, {}>{
         return maxVal
     }
     render() {
-        const { venue, vid, renderPos, renderSize, day, time, dataTimePop } = this.props
+        const { venue, vid, renderPos, renderSize, day, time, data } = this.props
 
         const transform: string = `translate(${renderPos.a}px, ${renderPos.b}px)`
 
-        const popRect = dataTimePop !== null ? (
+        const popRect = data !== null ? (
             <VenuePopulationRect
                 size={renderSize}
                 time={time}
                 maxVal={this.getMaxVal(this.props.modeVenuePopRect)}
-                data={dataTimePop}
+                data={data}
             />) : ''
-        const popLine = dataTimePop !== null ? (
+        const popLine = data !== null ? (
             <VenuePopulationLine
                 vid={vid}
                 day={day}
                 size={renderSize}
                 maxVal={this.getMaxVal(this.props.modeVenuePopLine)}
-                data={dataTimePop}
+                data={data}
             />) : ''
         return (
             <g style={{ transform: transform }}>

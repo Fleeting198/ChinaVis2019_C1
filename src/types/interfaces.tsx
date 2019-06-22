@@ -1,14 +1,7 @@
-export interface EchartsParamsPieSelectChanged_selected {
-    [key: string]: boolean;
-}
-export interface EchartsParamsPieSelectChanged {
-    name: string;
-    selected: EchartsParamsPieSelectChanged_selected;
-    type: string;
-}
 export interface ObjBoolean {
     [key: string]: boolean;
 }
+// 2-d vector
 export interface v2 {
     a: number;
     b: number;
@@ -23,10 +16,12 @@ export interface StyleMap {
     individRad: number;
     individFill: string;
 }
-// id: [sid, time]
+// 参会人员ID 轨迹数据  id: [sid, time]
 export interface IDataDayIDTimeSID {
     [key: string]: [string, number][];
 }
+
+// 时间
 export interface DayTimeSpan {
     day: number
     st: number
@@ -36,12 +31,7 @@ export interface TimeSpan {
     st: number
     ed: number
 }
-export interface MarkedPosition {
-    x: number;
-    y: number;
-    ID: string;
-    marked: boolean;
-}
+// 地点
 export interface Position {
     x: number;
     y: number;
@@ -62,6 +52,13 @@ export interface PositionPersonFloor {
     x: number;
     y: number;
 }
+export interface MarkedPosition {
+    x: number;
+    y: number;
+    ID: string;
+    marked: boolean;
+}
+// area
 export interface Area {
     x: number;
     y: number;
@@ -75,6 +72,7 @@ export interface AreaFloor {
     width: number;
     height: number;
 }
+// 
 export enum MODE_VENUE_POPULATION {
     RATIO,  // 各自会场的最大值为max
     VENUE,  // 全体会场的最大值为max
@@ -84,6 +82,8 @@ export enum MODE_POPULATION {
     STATIC,
     DYNAMIC
 }
-export interface IDataTimePop {
-    [key: string]: number[];  // key: floor.x.y, value: series
+// 外部json数据定义
+// 对某一天一个实体集合中的每一个实体在各采样时间点的人流量描述
+export interface DataPopulationEntitiesDay{
+    [key:string]:number[];
 }

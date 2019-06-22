@@ -1,22 +1,18 @@
 import * as React from 'react';
 import ReactEcharts from 'echarts-for-react';
-import { dataTimesIntervalClamp } from '../../../data/data_time';
+import { dataTimesIntervalClamp } from '../../data/data_time';
 import { EChartOption } from 'echarts';
-import { dataVenues } from '../../../data/venue';
-import { MODE_POPULATION } from '../../../types/interfaces';
+import { dataVenues } from '../../data/venue';
+import { DataPopulationEntitiesDay } from '../../types/interfaces';
 import { Button } from 'antd';
 
 
 interface Props {
     width: number;
     height: number;
-    day: number;
-    modePopulation: MODE_POPULATION;
+    dataPopulationVenues:DataPopulationEntitiesDay|null;
 }
-interface State {
-    data: any;
-}
-export default class LineTimePopulation extends React.Component<Props, State>{
+export default class LineTimePopulation extends React.Component<Props, {}>{
     chartRef: any = null;
     chartInstance: any = null;
     formRef: any = null;
@@ -30,28 +26,11 @@ export default class LineTimePopulation extends React.Component<Props, State>{
             data: null,
         };
 
-        this.updataData()
         this.handleSelectAllLegends = this.handleSelectAllLegends.bind(this)
         this.handleUnSelectAllLegends = this.handleUnSelectAllLegends.bind(this)
     }
-    updataData() {
-        const { modePopulation, day } = this.props
-        const modePop = (modePopulation === MODE_POPULATION.STATIC) ? 'static' : 'dynamic'
-        const url = `./data/venue_time_pop_${modePop}/data${day + 1}.json`
-
-        fetch(url)
-            .then(res => res.json())
-            .then(data => {
-                this.setState({ data: data })
-            })
-    }
     componentDidMount() {
         this.chartInstance = this.chartRef.getEchartsInstance();
-    }
-    componentDidUpdate(preProps: Props) {
-        if (this.props.day !== preProps.day || this.props.modePopulation !== preProps.modePopulation) {
-            this.updataData()
-        }
     }
     handleSelectAllLegends() {
         if (this.seriesNames.length === 0) { return }
@@ -73,12 +52,12 @@ export default class LineTimePopulation extends React.Component<Props, State>{
     }
 
     getSeriesLine(): EChartOption.SeriesLine[] {
-        const { data } = this.state
+        const { dataPopulationVenues } = this.props
 
         let ret: EChartOption.SeriesLine[] = [];
-        for (const vid in data) {
+        for (const vid in dataPopulationVenues) {
             if (vid === 'hallway1' || vid === 'hallway2') { continue }
-            const arr: number[] = data[vid];
+            const arr: number[] = dataPopulationVenues[vid];
             const name = dataVenues[vid].name
             this.seriesNames.push(name)
             const item: EChartOption.SeriesLine = {

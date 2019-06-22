@@ -1,8 +1,8 @@
 import * as React from "react";
 import MapVenue from './map/map'
 import LineTimePopulation from './line_time_population';
-import { MODE_POPULATION } from '../../../types/interfaces';
-import {  Radio, Row} from 'antd'
+import { MODE_POPULATION, DataPopulationEntitiesDay } from '../../types/interfaces';
+import { Radio, Row } from 'antd'
 
 
 // 负责场馆时序数据的状态管理
@@ -11,8 +11,8 @@ interface Props {
 }
 interface State {
     modePopulation: MODE_POPULATION;
-    dataVenue: any;
-    dataBlock: any;
+    dataPopulationVenues: DataPopulationEntitiesDay | null;
+    dataPopulationBlocks: DataPopulationEntitiesDay | null;
 }
 export default class SectionVenue extends React.Component<Props, State>{
     constructor(props: Props) {
@@ -20,8 +20,8 @@ export default class SectionVenue extends React.Component<Props, State>{
 
         this.state = {
             modePopulation: MODE_POPULATION.STATIC,
-            dataVenue: null,
-            dataBlock: null,
+            dataPopulationVenues: null,
+            dataPopulationBlocks: null,
         }
 
         this.handleSelectModePopulation = this.handleSelectModePopulation.bind(this)
@@ -30,24 +30,41 @@ export default class SectionVenue extends React.Component<Props, State>{
         value = value.target.value        //  radio group
         this.setState({ modePopulation: value })
     }
-
-    // TODO:用这个取代子组件自己发起的数据请求
-    // TODO: 把数据get (block+venue) 放到这里来, 避免子元素重复更新, day+modePopulation, 想办法同步更新?, Promise
-    async loadData() {
+    componentDidMount() {
+        this.loadDataPopulation()
+    }
+    componentDidUpdate(prevProps: Props, prevState: State) {
+        if (prevState.modePopulation !== this.state.modePopulation ||
+            prevProps.day !== this.props.day) {
+            this.loadDataPopulation()
+        }
+    }
+    async loadDataPopulation() {
+        // 根据 day 和 数据类型 modePopulation (动态,静态) 来获取数据
         const { day } = this.props,
             { modePopulation } = this.state
+        let dataPopulationVenues = null,
+            dataPopulationBlocks = null
+        try {
+            const urlDataVenueTime = `./data/venue_time_pop_${modePopulation}/data${day + 1}.json`,
+                urlDataBlockTime = `./data/block_time_pop_${modePopulation}/data${day + 1}.json`
+            console.log(urlDataVenueTime, urlDataBlockTime);
+            const t1 = fetch(urlDataVenueTime).then(res => res.json()),
+                t2 = fetch(urlDataBlockTime).then(res => res.json());
+            [dataPopulationVenues, dataPopulationBlocks] = await Promise.all([t1, t2])
 
-        const t1 = fetch(`./data/venue_time_pop_${modePopulation}/data${day + 1}.json`)
-            .then(res => res.json()),
-            t2 = fetch(`./data/block_time_pop_${modePopulation}/data${day + 1}.json`)
-                .then(res => res.json())
-
-        const [dataVenue, dataBlock] = await Promise.all([t1, t2])
-        this.setState({ dataVenue: dataVenue, dataBlock: dataBlock })
+        } catch (err) {
+            console.warn(err)
+        }
+        this.setState({
+            dataPopulationVenues: dataPopulationVenues,
+            dataPopulationBlocks: dataPopulationBlocks
+        })
+        console.log('data loaded, set state');
     }
     render() {
         const { day } = this.props
-        const { modePopulation } = this.state   // 静态\活跃值
+        const { modePopulation, dataPopulationVenues, dataPopulationBlocks } = this.state   // 静态\活跃值
 
         return (
             <div className="section" id="sec-venue">
@@ -69,6 +86,8 @@ export default class SectionVenue extends React.Component<Props, State>{
                             sizeBlock={25}
                             day={day}
                             modePopulation={modePopulation}
+                            dataPopulationVenues={dataPopulationVenues}
+                            dataPopulationBlocks={dataPopulationBlocks}
                         />
                     </Row>
 
@@ -76,8 +95,9 @@ export default class SectionVenue extends React.Component<Props, State>{
                         <LineTimePopulation
                             width={1076}
                             height={400}
-                            day={day}
-                            modePopulation={modePopulation}
+                            // day={day}
+                            // modePopulation={modePopulation}
+                            dataPopulationVenues={dataPopulationVenues}
                         />
                     </Row>
                 </div>

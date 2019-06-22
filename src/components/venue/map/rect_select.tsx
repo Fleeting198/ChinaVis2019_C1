@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { v2, Area } from '../../../../types/interfaces';
-import { styleMap } from '../../../../data/data_misc'
+import { v2, Area } from '../../../types/interfaces';
+import { styleMap } from '../../../data/data_misc'
 import * as d3 from 'd3'
 
 interface Props {

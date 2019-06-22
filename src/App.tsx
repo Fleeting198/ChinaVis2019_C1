@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { Radio, Row } from 'antd'
 import { chNum } from './data/data_misc'
-import Dashboard from './components/charts/dashboard'
 import 'antd/dist/antd.css';
 import './App.css';
-import SectionVenue from './components/charts/venue/section_venue'
+import SectionVenue from './components/venue/section_venue'
+import Dashboard from './components/charts/dashboard'
 
 interface Props {
 

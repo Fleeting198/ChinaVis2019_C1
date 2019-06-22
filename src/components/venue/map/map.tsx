@@ -3,18 +3,18 @@ import * as d3 from 'd3';
 import { Slider, Select, Button, Row, Col, message, Divider } from 'antd';
 import Floor from './floor'
 import WatchList from './watch_list'
-import { dataVenues, dataWalls, IWalls, IDataVenues } from '../../../../data/venue';
-import { v2, AreaFloor, IDataDayIDTimeSID, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition, PositionFloor, TimeSpan } from '../../../../types/interfaces';
-import { dataTimesIntervalClamp, numFramesIntervalClamp } from '../../../../data/data_time';
-// import { dataOD, limitODValue } from '../../../../data/ODAll';
-import { maxNumBlockTimePopDays } from '../../../../data/data_misc'
-import { getSidOfIDAtTime, sid2Pos, querySpatialTemporal, querySpatialTemporalOnce, frameWithInterval2frameSec, frame2Time, number2StrFill0 } from '../../../../utils'
+import { v2, AreaFloor, IDataDayIDTimeSID, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition, PositionFloor, TimeSpan, DataPopulationEntitiesDay } from '../../../types/interfaces';
+import { dataTimesIntervalClamp, numFramesIntervalClamp } from '../../../data/data_time';
+import { maxNumBlockTimePopDays } from '../../../data/data_misc'
+import { getSidOfIDAtTime, sid2Pos, querySpatialTemporal, querySpatialTemporalOnce, frameWithInterval2frameSec, frame2Time, number2StrFill0 } from '../../../utils'
 
 interface Props {
-    sizeSVG: v2
+    sizeSVG: v2               // SVG 像素尺寸
     sizeBlock: number         // 单元格尺寸, 像素
     day: number
     modePopulation: MODE_POPULATION
+    dataPopulationVenues: DataPopulationEntitiesDay | null    // 场馆流量数据
+    dataPopulationBlocks: DataPopulationEntitiesDay | null    // 格子流量数据
 }
 interface State {
     curTime: number;   // 距当天开始(7:00)经过秒数
@@ -28,25 +28,40 @@ interface State {
     signRectSelectionChanged: boolean;
 
     watchListChanged: boolean;
-    dataIDTime: IDataDayIDTimeSID | null;
+    dataIDTime: IDataDayIDTimeSID | null;   // 参会人员ID 轨迹数据
 }
 export default class MapVenue extends React.Component<Props, State> {
 
     SVGref: SVGSVGElement | null = null
-    gap: number = 1                                            // 两楼层间间隔单元格数量
+
+    // 两楼层间间隔单元格数量
+    gap: number = 1
+
+    // 楼层横纵向尺寸, a: 长度, b: 高度
     sizeFloors: v2[] = [{ a: 30, b: 16 }, { a: 13, b: 16 }]
-    offsetFloor2: number = (30 + this.gap) * this.props.sizeBlock     // 一楼横向单元格数量+gap
-    heightFloor: number = this.props.sizeBlock * 16                  // 2个楼层的高度是相同的
+
+    // 一楼横向单元格数量+gap
+    offsetFloor2: number = (30 + this.gap) * this.props.sizeBlock
+
+    // 2个楼层的高度是相同的
+    heightFloor: number = this.props.sizeBlock * 16
+
+    // 时间刻度名称
     dataTimes: string[] = dataTimesIntervalClamp[300]
+
+    // 帧数
     numFrames: number = numFramesIntervalClamp[300]
-    splitDataVenues: IDataVenues[] = this.splitDataVenueByFloor(dataVenues)
-    splitDataWalls: IWalls[][] = this.splitDataWallByFloor(dataWalls)
+
+    // key:string 为 在地图上显示坐标的人员ID, value:bool 为 是否被 mark 以在坐标点上显示专门标识信息(ID)
     watchList: Map<string, boolean> = new Map();
 
-    listMaxValHeat: number[] = []
-    maxValHeat: number = 0
-    scaleColorHeat: d3.ScaleSequential<string> = d3.scaleSequential(d3.interpolateOrRd);
+    // 最大热力对应的数值
+    maxValHeat: number = (this.props.modePopulation === MODE_POPULATION.STATIC ?
+        maxNumBlockTimePopDays.static : maxNumBlockTimePopDays.dynamic)[this.props.day]
 
+    // block 热力图 visualMap 的颜色
+    scaleColorHeat: d3.ScaleSequential<string> = d3.scaleSequential(d3.interpolateOrRd)
+        .domain([0, this.maxValHeat]);
 
     constructor(props: Props) {
         super(props);
@@ -54,7 +69,7 @@ export default class MapVenue extends React.Component<Props, State> {
         this.state = {
             curTime: 0,
             modeVenuePopLine: MODE_VENUE_POPULATION.RATIO,
-            modeVenuePopRect: MODE_VENUE_POPULATION.VENUE,
+            modeVenuePopRect: MODE_VENUE_POPULATION.RATIO,
 
             curTimeSelection: { st: 0, ed: 0 },
             curRectSelection: null,
@@ -65,7 +80,7 @@ export default class MapVenue extends React.Component<Props, State> {
             dataIDTime: null,
         }
 
-        this.loadData()
+        this.loadDataIndividual()
 
         this.handleTimeChange = this.handleTimeChange.bind(this)
         // this.handleTimeAfterChange = this.handleTimeAfterChange.bind(this)
@@ -81,10 +96,9 @@ export default class MapVenue extends React.Component<Props, State> {
         // for watch list 
         this.handleWatchListAdd = this.handleWatchListAdd.bind(this)
         this.handleWatchListRemove = this.handleWatchListRemove.bind(this)
-
         this.handleWatchListMarkChange = this.handleWatchListMarkChange.bind(this)
     }
-    loadData() {
+    loadDataIndividual() {
         const { day } = this.props
         fetch(`./data/id_time/data${day + 1}.json`)
             .then(res => res.json())
@@ -94,44 +108,13 @@ export default class MapVenue extends React.Component<Props, State> {
     }
     componentDidUpdate(preProps: Props) {
         if (this.props.day !== preProps.day) {
-            this.loadData()
+            this.loadDataIndividual()
         }
-    }
-    splitDataVenueByFloor(dataVenues: IDataVenues): IDataVenues[] {
-        const ret: IDataVenues[] = []
-        for (const vid in dataVenues) {
-            const venue = dataVenues[vid]
-
-            const idx = venue.floor - 1;
-            if (typeof ret[idx] === 'undefined') {
-                ret[idx] = { [vid]: venue };
-            } else {
-                ret[idx][vid] = venue;
-            }
-        }
-
-        return ret
-    }
-    splitDataWallByFloor(dataWalls: IWalls[]): IWalls[][] {
-        const ret: IWalls[][] = [];
-        for (const wall of dataWalls) {
-            const idx = wall.floor - 1
-            if (typeof ret[idx] === 'undefined') {
-                ret[idx] = [wall];
-            } else {
-                ret[idx].push(wall);
-            }
-        }
-
-        return ret;
     }
     // 注意时间的取值范围/采样间隔/元素数量
     handleTimeChange(value: any): void {
         this.setState({ curTime: value });
     }
-    // handleTimeAfterChange(value: any): void {
-    //     this.setState({ curTime: value });
-    // }
     handleModeVenueLine(value: any): void {
         this.setState({ modeVenuePopLine: value })
     }
@@ -223,7 +206,7 @@ export default class MapVenue extends React.Component<Props, State> {
         return positions
     }
     render() {
-        const { day, sizeBlock } = this.props
+        const { day, sizeBlock, dataPopulationBlocks, dataPopulationVenues } = this.props
         const { curTime, curRectSelection, curTimeSelection } = this.state
 
         const positionsWatched = this.getPositionsOfWatchList()
@@ -245,13 +228,6 @@ export default class MapVenue extends React.Component<Props, State> {
             tmp = frame2Time(curTimeSelection.ed)
             temporalEd = number2StrFill0(tmp[0]) + ':' + number2StrFill0(tmp[1])
         }
-
-        // color bar
-        this.listMaxValHeat = (this.props.modePopulation === MODE_POPULATION.STATIC) ?
-            maxNumBlockTimePopDays.static : maxNumBlockTimePopDays.dynamic
-        this.maxValHeat = this.listMaxValHeat[this.props.day]   // default max value for heat
-        this.scaleColorHeat.domain([0, this.maxValHeat]);
-
         return (
             <div className="material-card" id="map" style={{ width: this.props.sizeSVG.a, marginBottom: 40 }}>
                 <div id="control-map" >
@@ -327,6 +303,7 @@ export default class MapVenue extends React.Component<Props, State> {
                     <Col>
                         {/* <div className="color-bar"
                     style={{background:linear-gradient(to right,  #ff0000 0%,#ffff00 25%,#007f08 50%,turquoise 75%,blue 100%)   }}></div> */}
+                        {/* block 热力图 visualMap */}
                         <div id="color-bar-container">
                             <span className="color-bar-label-left">0</span>
                             <div id="color-bar"
@@ -345,7 +322,7 @@ export default class MapVenue extends React.Component<Props, State> {
                                     floor={0}
                                     size={this.sizeFloors[0]}
                                     sizeBlock={sizeBlock}
-                                    venues={this.splitDataVenues[0]}
+                                    // venues={this.splitDataVenues[0]}
                                     day={day}
                                     time={curTime}
 
@@ -361,6 +338,11 @@ export default class MapVenue extends React.Component<Props, State> {
 
                                     targetPositions={positionsWatched[0]}
                                     maxValHeat={this.maxValHeat}
+                                    scaleColor={this.scaleColorHeat}
+
+                                    dataPopulationBlocks={dataPopulationBlocks}
+                                    dataPopulationVenues={dataPopulationVenues}
+                                    
                                 />
                             </g>
                             <g style={{ transform: `translate(${this.offsetFloor2}px, ${0}px)` }}>
@@ -368,7 +350,7 @@ export default class MapVenue extends React.Component<Props, State> {
                                     floor={1}
                                     size={this.sizeFloors[1]}
                                     sizeBlock={sizeBlock}
-                                    venues={this.splitDataVenues[1]}
+                                    // venues={this.splitDataVenues[1]}
                                     day={day}
                                     time={curTime}
 
@@ -384,6 +366,10 @@ export default class MapVenue extends React.Component<Props, State> {
 
                                     targetPositions={positionsWatched[1]}
                                     maxValHeat={this.maxValHeat}
+                                    scaleColor={this.scaleColorHeat}
+
+                                    dataPopulationBlocks={dataPopulationBlocks}
+                                    dataPopulationVenues={dataPopulationVenues}
                                 />
                             </g>
                             {/* <VenuesODGraph
@@ -396,6 +382,7 @@ export default class MapVenue extends React.Component<Props, State> {
                     </Col>
                 </Row>
 
+                {/* 时间 slider 和 时间范围选择 slider*/}
                 <div id="map-sliders">
                     <Row type="flex" justify="center" align="middle">
                         <Col span={2}>

@@ -2,24 +2,25 @@ import * as React from "react";
 import * as d3 from 'd3';
 import Venues from './venues';
 import RectSelect from './rect_select'
-import { IDataVenues } from '../../../../data/venue';
-import { v2, AreaFloor, Area, MODE_VENUE_POPULATION, MODE_POPULATION, IDataTimePop, MarkedPosition } from '../../../../types/interfaces';
-import { styleMap, chNum } from '../../../../data/data_misc'
-import { sid2Pos, pos2Sid } from '../../../../utils'
-import { dataSidAll } from '../../../../data/sid_all'
+import { v2, AreaFloor, Area, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition } from '../../../types/interfaces';
+import { styleMap, chNum } from '../../../data/data_misc'
+import { sid2Pos, pos2Sid } from '../../../utils'
+import { dataSidAll } from '../../../data/sid_all'
+import { DataPopulationEntitiesDay } from '../../../types/interfaces';
 
-// 负责单层场地的渲染
+// 负责单层场地地图的渲染
 interface PropsFloor {
     floor: number
     size: v2
     sizeBlock: number
-    venues: IDataVenues
     day: number
     time: number
 
     modeVenuePopLine: MODE_VENUE_POPULATION
     modeVenuePopRect: MODE_VENUE_POPULATION
     modePopulation: MODE_POPULATION
+    dataPopulationBlocks: DataPopulationEntitiesDay | null
+    dataPopulationVenues: DataPopulationEntitiesDay | null
 
     onRectSelectChange: (a: AreaFloor | null) => void
     onRectSelectStart: (a: number) => void
@@ -28,15 +29,12 @@ interface PropsFloor {
     signRectSelectionChanged: boolean
 
     targetPositions: MarkedPosition[]
-    maxValHeat: number
+    maxValHeat: number,
+    scaleColor: any
 }
-interface StateFloor {
-    data: IDataTimePop | null;
-}
-export default class Floor extends React.Component<PropsFloor, StateFloor>{
+export default class Floor extends React.Component<PropsFloor, {}>{
     refGBlocks: SVGGElement | null = null;
     sidRects: { [key: string]: any } = {};
-    scaleColor: d3.ScaleSequential<string> = d3.scaleSequential(d3.interpolateOrRd);
 
     constructor(props: PropsFloor) {
         super(props)
@@ -45,13 +43,12 @@ export default class Floor extends React.Component<PropsFloor, StateFloor>{
         this.state = {
             data: null,
         }
-        if (this.props.modePopulation === MODE_POPULATION.STATIC) {
-            this.scaleColor.domain([0, 0.6 * this.props.maxValHeat])
-        } else {
-            this.scaleColor.domain([0, this.props.maxValHeat])
-        }
+        // if (this.props.modePopulation === MODE_POPULATION.STATIC) {
+        //     this.scaleColor.domain([0, 0.6 * this.props.maxValHeat])
+        // } else {
+        //     this.scaleColor.domain([0, this.props.maxValHeat])
+        // }
 
-        this.loadDataBlock()
         this.handleRectSelectChange = this.handleRectSelectChange.bind(this)
         this.handleRectSelectStart = this.handleRectSelectStart.bind(this)
     }
@@ -75,47 +72,47 @@ export default class Floor extends React.Component<PropsFloor, StateFloor>{
             this.sidRects[sid] = rect;
         }
     }
-    componentDidUpdate(preProps: PropsFloor) {
-        if (preProps.modePopulation !== this.props.modePopulation
-            || preProps.day !== this.props.day) {
-            this.loadDataBlock();
+    componentDidUpdate(prevProps: PropsFloor) {
+        // time 更新, 改变block颜色
+        let colorForUpdate: { [key: string]: string } = {}
 
-        } else {
-            let colorForUpdate: { [key: string]: string } = {}
-
-            if (this.state.data) {
-                const data = this.state.data;
-                for (const sid in data) {
-                    let color = this.scaleColor(data[sid][this.props.time]);
-                    // const rect = this.sidRects[sid];
-                    colorForUpdate[sid] = color
-                }
+        // 数据映射到颜色
+        if (this.props.dataPopulationBlocks) {
+            const data = this.props.dataPopulationBlocks;
+            for (const sid in data) {
+                let color = this.props.scaleColor(data[sid][this.props.time]);
+                // const rect = this.sidRects[sid];
+                colorForUpdate[sid] = color
             }
-            // this.props.signRectSelectionChanged !== preProps.signRectSelectionChanged &&
+            // 框选的暗色效果, 通过直接修改 block 的颜色实现, 而不是添加额外的覆盖层
+            // 显然, 若没有数据, 框选也是无意义的
             if (this.props.curRectSelection !== null &&
                 this.props.curRectSelection.floor === this.props.floor
             ) {
                 const { curRectSelection } = this.props
 
-                let x2 = curRectSelection.x + curRectSelection.width,
+                const x2 = curRectSelection.x + curRectSelection.width,
                     y2 = curRectSelection.y + curRectSelection.height
                 for (let x = curRectSelection.x; x < x2; x++) {
                     for (let y = curRectSelection.y; y < y2; y++) {
-                        let sid = pos2Sid(curRectSelection.floor + 1, x, y)
+                        const sid = pos2Sid(curRectSelection.floor + 1, x, y)
                         if (sid in this.sidRects) {
                             // const rect = this.sidRects[sid]
-                            let color: any = d3.color(colorForUpdate[sid])
+                            const color: any = d3.color(colorForUpdate[sid])
                             colorForUpdate[sid] = color.darker(0.5).toString()
                             // .attr('stroke-width', styleMap.blockSelectedStrokeWidth)
                         }
                     }
                 }
             }
+            // 应用颜色渐变
             for (const sid in colorForUpdate) {
-                this.sidRects[sid]
-                    .transition()
-                    .duration(100)
-                    .attr('fill', colorForUpdate[sid])
+                if (sid in this.sidRects) {
+                    this.sidRects[sid]
+                        .transition()
+                        .duration(100)
+                        .attr('fill', colorForUpdate[sid])
+                }
             }
         }
     }
@@ -132,19 +129,8 @@ export default class Floor extends React.Component<PropsFloor, StateFloor>{
         } : null;
         this.props.onRectSelectChange(ret)
     }
-    loadDataBlock() {
-        const { day, floor, modePopulation } = this.props
-
-        const modePop = (modePopulation === MODE_POPULATION.STATIC) ? 'static' : 'dynamic'
-        const url = `./data/block_time_pop_${modePop}/data${day + 1}_floor${floor + 1}.json`
-        fetch(url)
-            .then(res => res.json())
-            .then(data => {
-                this.setState({ data: data })
-            })
-    }
     render() {
-        const { size, sizeBlock, targetPositions } = this.props;
+        const { size, sizeBlock, targetPositions, dataPopulationVenues } = this.props;
         const positions = targetPositions.map((pos, idx) => {
             const x = (pos.x + 0.5) * sizeBlock, y = (pos.y + 0.5) * sizeBlock
             const { ID, marked } = pos
@@ -164,8 +150,6 @@ export default class Floor extends React.Component<PropsFloor, StateFloor>{
                 </g>
             )
         })
-        // console.log(this.props.floor, positions)
-
         return (
             <g className="floor">
                 {/* wall */}
@@ -179,12 +163,13 @@ export default class Floor extends React.Component<PropsFloor, StateFloor>{
                 </g>
                 <Venues
                     sizeBlock={sizeBlock}
-                    venues={this.props.venues}
+                    // venues={this.props.venues}
                     day={this.props.day}
                     time={this.props.time}
                     modeVenuePopLine={this.props.modeVenuePopLine}
                     modeVenuePopRect={this.props.modeVenuePopRect}
                     modePopulation={this.props.modePopulation}
+                    dataPopulation={dataPopulationVenues}
                 />
                 <text y={20} x={5} style={{ fontWeight: "bold" }}>
                     {chNum[this.props.floor]}楼
