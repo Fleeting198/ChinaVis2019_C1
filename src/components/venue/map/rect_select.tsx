@@ -4,16 +4,22 @@ import { styleMap } from '../../../data/data_misc'
 import * as d3 from 'd3'
 
 interface Props {
+    // 像素尺寸
     size: v2
     sizeBlock: number
     onChange: (a: Area | null) => void
     onStart: (a: number) => void
+
+    // 通过判断ID和controlID是否相等, 可以在同组的其他框选组件开始操作时, 取消当前组件的框选
+    // 本组件的ID
     ID: number
+
+    // 所属的互斥框选组件组中, 当前正在被交互的组件ID
     controlID: number
 }
 interface State {
-    st: [number, number] | null;
-    ed: [number, number] | null;
+    st: [number, number] | null;    // 框选起始点
+    ed: [number, number] | null;    // 框选结束点
 
     dragging: boolean
 }
@@ -84,6 +90,8 @@ export default class RectSelect extends React.Component<Props, State> {
     componentDidMount() {
         const ctx = d3.select(this.ref)
         ctx.on('mousedown', () => {
+            console.warn('mouse down')
+
             if (!this.state.dragging) {
                 // console.log('start selection')
                 let st = d3.mouse(this.ref!)
@@ -97,8 +105,9 @@ export default class RectSelect extends React.Component<Props, State> {
                 this.setState({ ed: ed })
             }
         })
+        // TODO: 修复左键抬起结束选择无效的BUG
         ctx.on('mouseup', () => {
-            console.log('mouse up')
+            console.warn('mouse up')
             if (this.state.dragging) {
                 // this.selection 会先于 state 更新, 逻辑 先于 表现
                 let ed = d3.mouse(this.ref!)

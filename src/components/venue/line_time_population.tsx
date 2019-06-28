@@ -2,7 +2,7 @@ import * as React from 'react';
 import ReactEcharts from 'echarts-for-react';
 import { dataTimesIntervalClamp } from '../../data/data_time';
 import { EChartOption } from 'echarts';
-import { dataVenues } from '../../data/venue';
+import { dataVenues } from '../../data/data_venues';
 import { DataPopulationEntitiesDay } from '../../types/interfaces';
 import { Button } from 'antd';
 

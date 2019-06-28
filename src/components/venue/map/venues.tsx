@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as d3 from 'd3';
-import {  IVenue,dataVenues } from '../../../data/venue';
-import { v2, MODE_VENUE_POPULATION, MODE_POPULATION,DataPopulationEntitiesDay } from '../../../types/interfaces';
+import { IVenue,IDataVenues } from '../../../data/data_venues';
+import { v2, MODE_VENUE_POPULATION, MODE_POPULATION, DataPopulationEntitiesDay } from '../../../types/interfaces';
 import { maxNumVenueTimePop, styleMap } from '../../../data/data_misc';
 
 // Venues, Venue, VenuePopulationRect, VenuePopulationLine
@@ -10,18 +10,25 @@ interface PropsVenues {
     sizeBlock: number
     day: number
     time: number
+    dataVenues:IDataVenues
     modeVenuePopLine: MODE_VENUE_POPULATION    // 最大值类型
     modeVenuePopRect: MODE_VENUE_POPULATION
     modePopulation: MODE_POPULATION
-    dataPopulation:DataPopulationEntitiesDay|null
+    dataPopulation: DataPopulationEntitiesDay | null
 }
+/**
+ * 场馆集合, 决定场馆渲染的位置和尺寸, 分配每个场馆的时序数据
+ *
+ * @export
+ * @class Venues
+ * @extends {React.Component<PropsVenues, {}>}
+ */
 export default class Venues extends React.Component<PropsVenues, {}>{
     positions: { [key: string]: v2 } = {}
     sizes: { [key: string]: v2 } = {}
-    
+
     render() {
-        const { sizeBlock, day, time,dataPopulation } = this.props;
-        // const { dataTimePop } = this.state
+        const { sizeBlock, day, time, dataPopulation,dataVenues } = this.props;
 
         // 计算渲染尺寸和渲染位置, 并暂时保存        
         for (const vid in dataVenues) {
@@ -37,7 +44,6 @@ export default class Venues extends React.Component<PropsVenues, {}>{
         const ret: any[] = [];
         for (const vid in dataVenues) {
             const venue = dataVenues[vid]
-            // const data = dataTimePop ? dataTimePop[vid] : null;
             const dataVenue = dataPopulation ? dataPopulation[vid] : null;
 
             ret.push((
@@ -75,6 +81,12 @@ interface PropsVenue {
     modeVenuePopRect: MODE_VENUE_POPULATION,
     data: number[] | null;
 }
+/**
+ * 单个场馆, 包括边界, 时刻流量进度条, 全天流量折线图. 决定两个流量组件的最大值(而不是由组件决定).
+ *
+ * @class Venue
+ * @extends {React.Component<PropsVenue, {}>}
+ */
 class Venue extends React.Component<PropsVenue, {}>{
     getMaxVal(modeMax: MODE_VENUE_POPULATION): number {
         const { vid, day, modePopulation } = this.props;
@@ -134,13 +146,19 @@ class Venue extends React.Component<PropsVenue, {}>{
         )
     }
 }
-// 以百分比进度条的形式, 显示场馆在一个时刻的人数信息
+// 
 interface PropsVenuePopulationRect {
     size: v2;
     time: number;
     maxVal: number;
     data: number[];
 }
+/**
+ * 以百分比进度条的形式, 显示场馆在一个时刻的人数信息
+ *
+ * @class VenuePopulationRect
+ * @extends {React.Component<PropsVenuePopulationRect, {}>}
+ */
 class VenuePopulationRect extends React.Component<PropsVenuePopulationRect, {}>{
     ref: SVGRectElement | null = null;
 
@@ -172,7 +190,7 @@ class VenuePopulationRect extends React.Component<PropsVenuePopulationRect, {}>{
         )
     }
 }
-// 折线图, 显示场馆在一天中的人数变化
+// 
 interface PropsVenuePopulationLine {
     vid: string;    // 用来获取数据
     day: number;
@@ -180,6 +198,12 @@ interface PropsVenuePopulationLine {
     maxVal: number;
     data: number[];
 }
+/**
+ * 折线图, 显示场馆在一天中的人数变化
+ *
+ * @class VenuePopulationLine
+ * @extends {React.Component<PropsVenuePopulationLine, {}>}
+ */
 class VenuePopulationLine extends React.Component<PropsVenuePopulationLine, {}>{
     ref: SVGPathElement | null = null;
     scaleX: any = null;

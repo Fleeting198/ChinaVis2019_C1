@@ -1,20 +1,21 @@
 import * as React from "react";
 import * as d3 from 'd3';
 import Venues from './venues';
+import { IDataVenues } from "../../../data/data_venues";
 import RectSelect from './rect_select'
-import { v2, AreaFloor, Area, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition } from '../../../types/interfaces';
+import { v2, AreaFloor, Area, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition ,DataPopulationEntitiesDay} from '../../../types/interfaces';
 import { styleMap, chNum } from '../../../data/data_misc'
 import { sid2Pos, pos2Sid } from '../../../utils'
 import { dataSidAll } from '../../../data/sid_all'
-import { DataPopulationEntitiesDay } from '../../../types/interfaces';
 
-// 负责单层场地地图的渲染
 interface PropsFloor {
     floor: number
     size: v2
     sizeBlock: number
     day: number
     time: number
+
+    dataVenues:IDataVenues
 
     modeVenuePopLine: MODE_VENUE_POPULATION
     modeVenuePopRect: MODE_VENUE_POPULATION
@@ -32,6 +33,13 @@ interface PropsFloor {
     maxValHeat: number,
     scaleColor: any
 }
+/**
+ * 负责单层场地地图的渲染
+ *
+ * @export
+ * @class Floor
+ * @extends {React.Component<PropsFloor, {}>}
+ */
 export default class Floor extends React.Component<PropsFloor, {}>{
     refGBlocks: SVGGElement | null = null;
     sidRects: { [key: string]: any } = {};
@@ -163,7 +171,7 @@ export default class Floor extends React.Component<PropsFloor, {}>{
                 </g>
                 <Venues
                     sizeBlock={sizeBlock}
-                    // venues={this.props.venues}
+                    dataVenues={this.props.dataVenues}
                     day={this.props.day}
                     time={this.props.time}
                     modeVenuePopLine={this.props.modeVenuePopLine}
@@ -173,7 +181,7 @@ export default class Floor extends React.Component<PropsFloor, {}>{
                 />
                 <text y={20} x={5} style={{ fontWeight: "bold" }}>
                     {chNum[this.props.floor]}楼
-            </text>
+                </text>
                 <RectSelect
                     size={size}
                     sizeBlock={sizeBlock}

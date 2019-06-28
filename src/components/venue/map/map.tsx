@@ -1,10 +1,11 @@
-import * as React from "react";
-import * as d3 from 'd3';
-import { Slider, Select, Button, Row, Col, message, Divider } from 'antd';
+import * as React from "react"
+import * as d3 from 'd3'
+import { Slider, Select, Button, Row, Col, message, Divider } from 'antd'
 import Floor from './floor'
+import { IDataVenues, dataVenues } from '../../../data/data_venues'
 import WatchList from './watch_list'
-import { v2, AreaFloor, IDataDayIDTimeSID, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition, PositionFloor, TimeSpan, DataPopulationEntitiesDay } from '../../../types/interfaces';
-import { dataTimesIntervalClamp, numFramesIntervalClamp } from '../../../data/data_time';
+import { v2, AreaFloor, IDataDayIDTimeSID, MODE_VENUE_POPULATION, MODE_POPULATION, MarkedPosition, PositionFloor, TimeSpan, DataPopulationEntitiesDay } from '../../../types/interfaces'
+import { dataTimesIntervalClamp, numFramesIntervalClamp } from '../../../data/data_time'
 import { maxNumBlockTimePopDays } from '../../../data/data_misc'
 import { getSidOfIDAtTime, sid2Pos, querySpatialTemporal, querySpatialTemporalOnce, frameWithInterval2frameSec, frame2Time, number2StrFill0 } from '../../../utils'
 
@@ -12,12 +13,12 @@ interface Props {
     sizeSVG: v2               // SVG 像素尺寸
     sizeBlock: number         // 单元格尺寸, 像素
     day: number
-    modePopulation: MODE_POPULATION
+    modePopulation: MODE_POPULATION                           // 动态, 静态
     dataPopulationVenues: DataPopulationEntitiesDay | null    // 场馆流量数据
     dataPopulationBlocks: DataPopulationEntitiesDay | null    // 格子流量数据
 }
 interface State {
-    curTime: number;   // 距当天开始(7:00)经过秒数
+    curTime: number   // 距当天开始(7:00)经过秒数
 
     modeVenuePopLine: MODE_VENUE_POPULATION;
     modeVenuePopRect: MODE_VENUE_POPULATION;
@@ -30,30 +31,38 @@ interface State {
     watchListChanged: boolean;
     dataIDTime: IDataDayIDTimeSID | null;   // 参会人员ID 轨迹数据
 }
+
+/**
+ * 场馆地图, 包括各种嵌入式的数据映射和对应的控制表单
+ *
+ * @export
+ * @class MapVenue
+ * @extends {React.Component<Props, State>}
+ */
 export default class MapVenue extends React.Component<Props, State> {
 
     SVGref: SVGSVGElement | null = null
 
-    // 两楼层间间隔单元格数量
+    // 创建地图时, 两楼层间横向间隔单元格数量
     gap: number = 1
 
     // 楼层横纵向尺寸, a: 长度, b: 高度
     sizeFloors: v2[] = [{ a: 30, b: 16 }, { a: 13, b: 16 }]
 
-    // 一楼横向单元格数量+gap
+    // 二楼在svg中的横轴位置: 一楼横向单元格数量+gap
     offsetFloor2: number = (30 + this.gap) * this.props.sizeBlock
 
-    // 2个楼层的高度是相同的
+    // 图中的楼层纵向尺寸, 2个楼层的是相同的
     heightFloor: number = this.props.sizeBlock * 16
 
-    // 时间刻度名称
+    // 时间刻度名称列表
     dataTimes: string[] = dataTimesIntervalClamp[300]
 
-    // 帧数
+    // 总帧数
     numFrames: number = numFramesIntervalClamp[300]
 
     // key:string 为 在地图上显示坐标的人员ID, value:bool 为 是否被 mark 以在坐标点上显示专门标识信息(ID)
-    watchList: Map<string, boolean> = new Map();
+    watchList: Map<string, boolean> = new Map()
 
     // 最大热力对应的数值
     maxValHeat: number = (this.props.modePopulation === MODE_POPULATION.STATIC ?
@@ -61,11 +70,14 @@ export default class MapVenue extends React.Component<Props, State> {
 
     // block 热力图 visualMap 的颜色
     scaleColorHeat: d3.ScaleSequential<string> = d3.scaleSequential(d3.interpolateOrRd)
-        .domain([0, this.maxValHeat]);
+        .domain([0, this.maxValHeat])
+
+    dataVenuesFloor: IDataVenues[]=this.loadDataVenues()
 
     constructor(props: Props) {
         super(props);
 
+        
         this.state = {
             curTime: 0,
             modeVenuePopLine: MODE_VENUE_POPULATION.RATIO,
@@ -80,7 +92,6 @@ export default class MapVenue extends React.Component<Props, State> {
             dataIDTime: null,
         }
 
-        this.loadDataIndividual()
 
         this.handleTimeChange = this.handleTimeChange.bind(this)
         // this.handleTimeAfterChange = this.handleTimeAfterChange.bind(this)
@@ -106,6 +117,17 @@ export default class MapVenue extends React.Component<Props, State> {
                 this.setState({ dataIDTime: data })
             })
     }
+    loadDataVenues(): IDataVenues[] {
+        let tmp: IDataVenues[] = [{}, {}]
+        for (let vid in dataVenues) {
+            let venue = dataVenues[vid]
+            tmp[venue.floor - 1][vid] = venue
+        }
+        return tmp
+    }
+    componentDidMount() {
+        this.loadDataIndividual()
+    }
     componentDidUpdate(preProps: Props) {
         if (this.props.day !== preProps.day) {
             this.loadDataIndividual()
@@ -121,7 +143,7 @@ export default class MapVenue extends React.Component<Props, State> {
     handleModeVenueRect(value: any): void {
         this.setState({ modeVenuePopRect: value })
     }
-    // 当前正在选择的rect select
+    // 当前正在选择的rect select, 同组间的其他框选组件会被取消
     handleRectSelectStart(floor: number) {
         if (floor === 0) {
             // clear selection floor 1
@@ -228,6 +250,7 @@ export default class MapVenue extends React.Component<Props, State> {
             tmp = frame2Time(curTimeSelection.ed)
             temporalEd = number2StrFill0(tmp[0]) + ':' + number2StrFill0(tmp[1])
         }
+        // TODO: 表单 显示当前选择信息 -> 交互表单
         return (
             <div className="material-card" id="map" style={{ width: this.props.sizeSVG.a, marginBottom: 40 }}>
                 <div id="control-map" >
@@ -322,7 +345,7 @@ export default class MapVenue extends React.Component<Props, State> {
                                     floor={0}
                                     size={this.sizeFloors[0]}
                                     sizeBlock={sizeBlock}
-                                    // venues={this.splitDataVenues[0]}
+                                    dataVenues={this.dataVenuesFloor[0]}
                                     day={day}
                                     time={curTime}
 
@@ -342,7 +365,7 @@ export default class MapVenue extends React.Component<Props, State> {
 
                                     dataPopulationBlocks={dataPopulationBlocks}
                                     dataPopulationVenues={dataPopulationVenues}
-                                    
+
                                 />
                             </g>
                             <g style={{ transform: `translate(${this.offsetFloor2}px, ${0}px)` }}>
@@ -350,7 +373,7 @@ export default class MapVenue extends React.Component<Props, State> {
                                     floor={1}
                                     size={this.sizeFloors[1]}
                                     sizeBlock={sizeBlock}
-                                    // venues={this.splitDataVenues[1]}
+                                    dataVenues={this.dataVenuesFloor[1]}
                                     day={day}
                                     time={curTime}
 
